@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campus WiFinder — Find your best spot</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07100d;
+  --panel: #101b17;
+  --panel-light: #14231d;
+  --panel-lighter: #192a23;
+
+  --text: #f2f7f4;
+  --muted: #81908a;
+  --muted-dim: #5c6b64;
+
+  --green: #b7ff5b;
+  --green-dim: #8fd946;
+  --green-dark: #16351f;
+
+  --yellow: #f1ca55;
+  --red: #ff625e;
+  --blue: #6b8cff;
+
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+
+  --display: "Space Grotesk", Inter, sans-serif;
+  --body: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: var(--body);
+  background:
+    radial-gradient(circle at 80% -10%, rgba(183,255,91,0.10), transparent 32%),
+    radial-gradient(circle at 10% 30%, rgba(107,140,255,0.06), transparent 35%),
+    var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+::selection { background: rgba(183,255,91,0.28); color: var(--text); }
+a { color: inherit; }
+button { font-family: var(--body); }
+
+/* =========================
+   BRAND / LOGO
+========================= */
+
+.brand-accent { color: var(--green); }
+
+.pin-i {
+  width: 0.58em;
+  height: 0.95em;
+  display: inline-block;
+  vertical-align: -0.1em;
+}
+
+/* The "jump in" of the location-pin. Plays once, only on the start
+   (landing) screen's logo — the auth modal and in-app header logos
+   render the pin already settled, with no animation. */
+@keyframes pinDrop {
+  0%   { opacity: 0; transform: translateY(-24px) scale(0.5) rotate(-12deg); }
+  55%  { opacity: 1; transform: translateY(4px) scale(1.2) rotate(4deg); }
+  75%  { transform: translateY(-3px) scale(0.92) rotate(-2deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+.pin-animate {
+  animation: pinDrop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
+  transform-origin: 50% 100%;
+}
+
+/* =========================
+   NAV (landing)
+========================= */
+
+nav {
+  height: 76px;
+  padding: 0 6%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,16,13,0.75);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.brand .glyph {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(183,255,91,0.12);
+  border: 1px solid rgba(183,255,91,0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+nav .links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+nav .links a.nav-link {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+nav .links a.nav-link:hover { color: var(--text); }
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  font-family: var(--body);
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #07100d;
+  padding: 10px 18px;
+  font-size: 13px;
+}
+.btn-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 9px 17px;
+  font-size: 13px;
+}
+.btn-ghost:hover { border-color: var(--green); color: var(--green); }
+
+/* =========================
+   HERO
+========================= */
+
+.hero {
+  width: min(1080px, 88%);
+  margin: 0 auto;
+  padding: 100px 0 70px;
+  text-align: center;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--green-dim);
+  background: rgba(183,255,91,0.08);
+  border: 1px solid rgba(183,255,91,0.2);
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 26px;
+}
+
+.eyebrow .live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(183,255,91,0.5);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(183,255,91,0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(183,255,91,0); }
+  100% { box-shadow: 0 0 0 0 rgba(183,255,91,0); }
+}
+
+.hero h1 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(40px, 6vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -2.5px;
+  margin: 0 0 22px;
+}
+
+.hero h1 .accent { color: var(--green); }
+
+.hero p.sub {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 560px;
+  margin: 0 auto 34px;
+}
+
+.hero-ctas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.hero-ctas .btn-primary { padding: 13px 24px; font-size: 14px; }
+.hero-ctas .btn-ghost { padding: 12px 22px; font-size: 14px; }
+
+.signal-visual {
+  margin: 60px auto 0;
+  width: min(720px, 92%);
+  height: 220px;
+  position: relative;
+  border-radius: 22px;
+  background: linear-gradient(150deg, rgba(20,35,29,0.9), rgba(11,20,17,0.95));
+  border: 1px solid var(--border-strong);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.4);
+}
+
+.sv-rings span {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(183,255,91,0.25);
+  border-radius: 50%;
+  animation: ring-out 3.6s ease-out infinite;
+}
+.sv-rings span:nth-child(1) { width: 40px; height: 40px; animation-delay: 0s; }
+.sv-rings span:nth-child(2) { width: 40px; height: 40px; animation-delay: 1.2s; }
+.sv-rings span:nth-child(3) { width: 40px; height: 40px; animation-delay: 2.4s; }
+
+@keyframes ring-out {
+  0% { width: 40px; height: 40px; opacity: 0.9; }
+  100% { width: 420px; height: 420px; opacity: 0; }
+}
+
+.sv-core {
+  position: relative;
+  z-index: 2;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(183,255,91,0.14);
+  border: 1px solid rgba(183,255,91,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+/* =========================
+   HOW IT WORKS / FEATURES
+========================= */
+
+.section {
+  width: min(1080px, 88%);
+  margin: 0 auto;
+  padding: 90px 0;
+}
+
+.section-head {
+  max-width: 520px;
+  margin-bottom: 50px;
+}
+
+.section-head .kicker {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(28px, 3.4vw, 40px);
+  letter-spacing: -1px;
+  margin: 0 0 14px;
+}
+
+.section-head p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.step-card {
+  background: linear-gradient(150deg, rgba(20,35,29,0.7), rgba(13,24,20,0.85));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 26px 22px;
+  position: relative;
+}
+
+.step-num {
+  font-family: var(--display);
+  font-size: 13px;
+  color: var(--green-dim);
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.step-card h3 {
+  font-size: 15px;
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.step-card p {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.step-connector {
+  position: absolute;
+  top: 32px;
+  right: -20px;
+  width: 20px;
+  height: 1px;
+  background: var(--border-strong);
+  display: none;
+}
+
+@media (min-width: 861px) {
+  .step-card:not(:last-child) .step-connector { display: block; }
+}
+
+.features {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.feature-main {
+  background: linear-gradient(140deg, rgba(183,255,91,0.1), rgba(20,35,29,0.6));
+  border: 1px solid rgba(183,255,91,0.22);
+  border-radius: 20px;
+  padding: 34px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 260px;
+}
+
+.feature-main h3 {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 0 0 10px;
+}
+
+.feature-main p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 380px;
+  margin: 0;
+}
+
+.feature-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.feature-mini {
+  flex: 1;
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+}
+
+.feature-mini .mini-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  margin-bottom: 14px;
+}
+
+.feature-mini h4 { font-size: 13.5px; margin: 0 0 6px; font-weight: 700; }
+.feature-mini p { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 0; }
+
+.cta-band {
+  width: min(1080px, 88%);
+  margin: 0 auto 100px;
+  background: linear-gradient(135deg, rgba(183,255,91,0.14), rgba(11,20,17,0.9));
+  border: 1px solid rgba(183,255,91,0.25);
+  border-radius: 22px;
+  padding: 46px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.cta-band h3 {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 0 0 6px;
+}
+
+.cta-band p { color: var(--muted); font-size: 13px; margin: 0; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 30px 6%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--muted-dim);
+}
+
+/* =========================
+   AUTH MODAL (shared)
+========================= */
+
+#auth-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(183,255,91,0.10), transparent 55%),
+    rgba(4,9,7,0.75);
+  backdrop-filter: blur(6px);
+  padding: 24px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+#auth-screen.show { opacity: 1; visibility: visible; }
+
+.auth-wrap { width: 100%; max-width: 380px; position: relative; }
+
+.radar {
+  position: absolute;
+  top: -150px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 300px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.radar span {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border: 1px solid rgba(183,255,91,0.35);
+  border-radius: 50%;
+  animation: ping 3.2s cubic-bezier(0.2,0.6,0.4,1) infinite;
+}
+.radar span:nth-child(1) { width: 40px; height: 40px; animation-delay: 0s; }
+.radar span:nth-child(2) { width: 40px; height: 40px; animation-delay: 1.05s; }
+.radar span:nth-child(3) { width: 40px; height: 40px; animation-delay: 2.1s; }
+
+@keyframes ping {
+  0% { width: 40px; height: 40px; opacity: 0.9; border-color: rgba(183,255,91,0.6); }
+  100% { width: 320px; height: 320px; opacity: 0; border-color: rgba(183,255,91,0); }
+}
+
+.auth-card {
+  position: relative;
+  background: linear-gradient(150deg, rgba(20,35,29,0.98), rgba(11,20,17,0.99));
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 34px 30px 28px;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.55);
+}
+
+.auth-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+}
+.auth-close:hover { color: var(--text); border-color: var(--border-strong); }
+
+.auth-mark { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+.auth-mark .glyph {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: rgba(183,255,91,0.12);
+  border: 1px solid rgba(183,255,91,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.auth-mark b { font-family: var(--display); font-size: 15px; letter-spacing: -0.2px; }
+
+.auth-card h2 { font-family: var(--display); font-size: 26px; letter-spacing: -0.6px; margin: 0 0 6px; font-weight: 600; }
+.auth-card p.sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 0 0 22px; }
+
+.auth-tabs {
+  display: flex;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 3px;
+  margin-bottom: 20px;
+}
+.auth-tabs button {
+  flex: 1; border: none; background: transparent; color: var(--muted);
+  padding: 9px 0; border-radius: 8px; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: 0.2s ease;
+}
+.auth-tabs button.active { background: var(--green); color: #07100d; }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 7px; font-weight: 600; }
+.field input {
+  width: 100%; background: rgba(0,0,0,0.28); border: 1px solid var(--border);
+  color: var(--text); padding: 12px 13px; border-radius: 10px; font-size: 13.5px;
+  outline: none; transition: border-color 0.15s ease, background 0.15s ease;
+  font-family: var(--body);
+}
+.field input::placeholder { color: var(--muted-dim); }
+.field input:focus { border-color: rgba(183,255,91,0.5); background: rgba(0,0,0,0.4); }
+
+.auth-submit {
+  width: 100%; border: none; background: var(--green); color: #07100d;
+  padding: 13px 0; border-radius: 10px; font-size: 13px; font-weight: 800;
+  cursor: pointer; margin-top: 6px; transition: 0.2s ease; font-family: var(--body);
+}
+.auth-submit:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.auth-submit:active { transform: translateY(0); }
+
+.auth-error { font-size: 11.5px; color: var(--red); margin: 10px 2px 0; min-height: 14px; }
+
+.auth-guest { text-align: center; margin-top: 18px; font-size: 11.5px; color: var(--muted-dim); }
+.auth-guest a { color: var(--green-dim); cursor: pointer; text-decoration: none; font-weight: 600; }
+.auth-guest a:hover { text-decoration: underline; }
+
+.auth-note { font-size: 10.5px; color: var(--muted-dim); text-align: center; margin-top: 16px; line-height: 1.5; }
+
+/* =========================
+   APP HEADER
+========================= */
+
+header {
+  height: 76px;
+  padding: 0 6%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,16,13,0.8);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  gap: 16px;
+}
+
+header h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#status-pill {
+  font-size: 11.5px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+}
+
+.signal-bars { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
+.signal-bars i { width: 3px; background: var(--muted-dim); border-radius: 1px; display: block; }
+.signal-bars i:nth-child(1) { height: 4px; }
+.signal-bars i:nth-child(2) { height: 7px; }
+.signal-bars i:nth-child(3) { height: 10px; }
+.signal-bars i:nth-child(4) { height: 13px; }
+.signal-bars.active i { background: var(--green); }
+.signal-bars.good i { background: var(--green); }
+.signal-bars.moderate i { background: var(--yellow); }
+.signal-bars.congested i { background: var(--red); }
+
+.status-text .status-label { display: block; line-height: 1.3; }
+.status-text .status-sub { display: block; font-size: 9.5px; color: var(--muted); line-height: 1.3; }
+
+.pulse-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(183,255,91,0.55);
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+.retry-link { font-size: 9.5px; color: var(--green-dim); text-decoration: none; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.retry-link:hover { text-decoration: underline; }
+
+.loc-picker { position: relative; }
+.loc-picker select {
+  background: var(--panel-light); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px 11px; font-size: 12px; font-family: var(--body);
+  cursor: pointer; outline: none; max-width: 150px;
+}
+
+.user-chip {
+  display: none;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  background: var(--panel-light);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  position: relative;
+}
+.user-chip .avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--green), #6fae2c);
+  color: #07100d; font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.user-chip span.uname {
+  font-size: 12px; font-weight: 600; max-width: 90px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.logout-menu {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--panel-lighter); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 6px; min-width: 130px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4); display: none;
+}
+.logout-menu.show { display: block; }
+.logout-menu button {
+  width: 100%; text-align: left; border: none; background: transparent;
+  color: var(--text); padding: 8px 10px; border-radius: 7px; font-size: 12px;
+  cursor: pointer; font-family: var(--body);
+}
+.logout-menu button:hover { background: rgba(255,98,94,0.12); color: var(--red); }
+
+/* =========================
+   APP LAYOUT
+========================= */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.75fr);
+  gap: 22px;
+  padding: 38px 0 70px;
+  width: min(1180px, 88%);
+  margin: auto;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 15px 17px;
+  background: rgba(16,27,23,0.85);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+}
+.controls label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.controls label b { color: var(--text); }
+input[type="range"] { width: 170px; accent-color: var(--green); cursor: pointer; }
+.controls button {
+  border: none; background: var(--green); color: #07100d;
+  padding: 10px 15px; border-radius: 9px; font-size: 12px; font-weight: 800;
+  cursor: pointer; transition: 0.2s ease;
+}
+.controls button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
+#map {
+  height: 570px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 25px 70px rgba(0,0,0,0.25);
+}
+
+.legend {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  margin-top: 13px; padding: 12px 16px;
+  background: rgba(16,27,23,0.6); border: 1px solid var(--border);
+  border-radius: 12px; font-size: 11px; color: var(--muted);
+}
+.legend .item { display: flex; align-items: center; gap: 7px; }
+.legend .swatch { width: 10px; height: 10px; border-radius: 50%; }
+
+.panel {
+  background: linear-gradient(145deg, rgba(20,35,29,0.96), rgba(13,24,20,0.96));
+  border-radius: 20px; padding: 22px; border: 1px solid var(--border);
+  box-shadow: 0 25px 70px rgba(0,0,0,0.2);
+  position: sticky; top: 98px;
+}
+.panel h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin: 0 0 13px; }
+
+.best-card {
+  display: flex; align-items: center; gap: 15px; padding: 19px; border-radius: 15px;
+  background: linear-gradient(135deg, rgba(183,255,91,0.13), rgba(183,255,91,0.035));
+  border: 1px solid rgba(183,255,91,0.25); margin-bottom: 28px;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.15);
+}
+.dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.dot.good { background: var(--green); box-shadow: 0 0 15px rgba(183,255,91,0.55); }
+.dot.moderate { background: var(--yellow); box-shadow: 0 0 15px rgba(241,202,85,0.4); }
+.dot.congested { background: var(--red); box-shadow: 0 0 15px rgba(255,98,94,0.4); }
+.best-card .info { width: 100%; }
+.best-card .info b { display: block; font-size: 17px; letter-spacing: -0.3px; font-family: var(--display); font-weight: 600; }
+.best-card .info div.meta { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+
+.strength-track { margin-top: 10px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.strength-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--green-dim), var(--green)); }
+
+.loc-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 3px; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
+.loc-row:last-child { border-bottom: none; }
+.loc-row .left { display: flex; align-items: center; gap: 11px; }
+.loc-row .muted { color: var(--muted); font-size: 11px; }
+
+#toast {
+  position: fixed; bottom: 25px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--green); color: #07100d;
+  padding: 12px 18px; border-radius: 10px; font-size: 12px; font-weight: 700;
+  opacity: 0; transition: all 0.3s ease; pointer-events: none;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.35); z-index: 9999;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 860px) {
+  nav .links a.nav-link { display: none; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .features { grid-template-columns: 1fr; }
+  .hero { padding: 70px 0 50px; }
+  .cta-band { padding: 34px 26px; }
+
+  header { padding: 0 5%; }
+  .layout { grid-template-columns: 1fr; width: 92%; padding-top: 22px; }
+  .panel { position: static; }
+  #map { height: 430px; }
+}
+
+@media (max-width: 560px) {
+  .steps { grid-template-columns: 1fr; }
+  nav { padding: 0 5%; height: 68px; }
+  .auth-card { padding: 28px 22px 24px; }
+}
+
+@media (max-width: 600px) {
+  header { height: 68px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; }
+  .status-text .status-sub { display: none; }
+  .user-chip span.uname { display: none; }
+  .controls { flex-wrap: wrap; }
+  input[type="range"] { flex: 1; min-width: 130px; }
+  .controls button { width: 100%; }
+  #map { height: 390px; border-radius: 16px; }
+  .panel { padding: 17px; border-radius: 17px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     SCREEN 1: LANDING ("start")
+====================================================================== -->
+<div id="screen-landing">
+
+<nav>
+  <div class="brand">
+    <div class="glyph">📶</div>
+    Campus
+    <span class="brand-accent">WiF<svg class="pin-i pin-animate" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.5 2 5.5 4.8 5.5 8.5c0 5.2 6.5 13 6.5 13s6.5-7.8 6.5-13C18.5 4.8 15.5 2 12 2z" fill="currentColor"/><circle cx="12" cy="8.6" r="2.4" fill="var(--bg)"/></svg>nder</span>
+  </div>
+  <div class="links">
+    <a class="nav-link" href="#how-it-works">How it works</a>
+    <a class="nav-link" href="#features">Features</a>
+    <button class="btn btn-ghost" id="nav-signin-btn">Sign in</button>
+    <button class="btn btn-primary" id="nav-getstarted-btn">Get started</button>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="eyebrow"><span class="live-dot"></span> Built for VIT Vellore</div>
+  <h1>Stop guessing which<br>building has <span class="accent">good Wi-Fi.</span></h1>
+  <p class="sub">
+    Campus WiFinder reads live speed and distance data to point you at the fastest,
+    least congested spot near you — before you've walked there and found out it's slow.
+  </p>
+  <div class="hero-ctas">
+    <button class="btn btn-primary" id="hero-getstarted-btn" style="padding:13px 24px; font-size:14px;">Get started free</button>
+    <a href="#how-it-works" class="btn btn-ghost" style="padding:12px 22px; font-size:14px; text-decoration:none; display:inline-block;">See how it works</a>
+  </div>
+
+  <div class="signal-visual">
+    <div class="sv-rings"><span></span><span></span><span></span></div>
+    <div class="sv-core">📡</div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section" id="how-it-works">
+  <div class="section-head">
+    <div class="kicker">HOW IT WORKS</div>
+    <h2>From "where's the signal" to sitting down, in four steps.</h2>
+    <p>No new hardware, nothing to install on campus — just a browser and your location.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step-card">
+      <div class="step-num">01</div>
+      <h3>Sign in</h3>
+      <p>Create an account or continue as a guest to get personalized results instantly.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">02</div>
+      <h3>Share your location</h3>
+      <p>We use it only to measure distance to nearby Wi-Fi points — never stored on a server.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">03</div>
+      <h3>See live conditions</h3>
+      <p>Every nearby building is ranked by real download speed, latency, and how far it is.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">04</div>
+      <h3>Walk to the best spot</h3>
+      <p>Get the single best recommendation near you, plus backup options just outside range.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="section" id="features">
+  <div class="section-head">
+    <div class="kicker">WHY IT'S DIFFERENT</div>
+    <h2>Built around real conditions, not a static map.</h2>
+    <p>Most campus Wi-Fi maps are guesses. This one is built to plug into live network data.</p>
+  </div>
+
+  <div class="features">
+    <div class="feature-main">
+      <h3>One number that matters: your walk time to good signal.</h3>
+      <p>We combine distance and live speed into a single ranked recommendation, so you're not comparing five numbers in your head before class starts.</p>
+    </div>
+    <div class="feature-stack">
+      <div class="feature-mini">
+        <div class="mini-icon">⚡</div>
+        <h4>Live-ready by design</h4>
+        <p>Built to plug straight into real speed-test data once it's flowing in — not locked to a static list.</p>
+      </div>
+      <div class="feature-mini">
+        <div class="mini-icon">🔒</div>
+        <h4>Your location stays yours</h4>
+        <p>Used only in your browser to calculate distance — never logged or sent anywhere.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="cta-band">
+  <div>
+    <h3>Ready to find your spot?</h3>
+    <p>Sign in and get your first recommendation in seconds.</p>
+  </div>
+  <button class="btn btn-primary" id="cta-band-btn" style="padding:13px 26px; font-size:14px;">Get started free</button>
+</div>
+
+<footer>
+  <span>Campus WiFinder · built for VIT Vellore</span>
+  <span>© 2026</span>
+</footer>
+
+</div><!-- /#screen-landing -->
+
+<!-- ======================================================================
+     SCREEN 2: APP (map + recommendations)
+====================================================================== -->
+<div id="screen-app" style="display:none;">
+
+<header>
+  <h1>
+    📶 Campus
+    <span class="brand-accent">WiF<svg class="pin-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.5 2 5.5 4.8 5.5 8.5c0 5.2 6.5 13 6.5 13s6.5-7.8 6.5-13C18.5 4.8 15.5 2 12 2z" fill="currentColor"/><circle cx="12" cy="8.6" r="2.4" fill="var(--bg)"/></svg>nder</span>
+  </h1>
+
+  <div class="header-right">
+    <div id="status-pill">
+      <div class="signal-bars" id="signal-bars"><i></i><i></i><i></i><i></i></div>
+      <div class="status-text">
+        <span class="status-label" id="status-label">Waiting for location…</span>
+        <span class="status-sub" id="status-sub">Not connected</span>
+      </div>
+      <div class="pulse-dot" id="pulse-dot" style="display:none;"></div>
+      <a class="retry-link" id="retry-link" style="display:none;">Retry</a>
+    </div>
+
+    <div class="user-chip" id="app-user-chip">
+      <div class="avatar" id="app-user-avatar">?</div>
+      <span class="uname" id="app-user-name">Guest</span>
+      <div class="logout-menu" id="app-logout-menu">
+        <button id="app-logout-btn" type="button">Log out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <div>
+    <div style="margin-bottom:26px;">
+      <div style="color:#81908a; font-size:10px; font-weight:800; letter-spacing:2px; margin-bottom:10px;">
+        SMART CAMPUS CONNECTIVITY
+      </div>
+      <h2 style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:clamp(38px,5vw,60px); line-height:0.98; letter-spacing:-2px;">
+        Find your best<br>
+        <span style="color:#b7ff5b;">Wi-Fi spot.</span>
+      </h2>
+      <p style="color:#81908a; max-width:500px; font-size:13px; line-height:1.6; margin:17px 0 0;">
+        Get intelligent campus recommendations based on Wi-Fi quality, distance and current network conditions.
+      </p>
+    </div>
+
+    <div class="controls">
+      <label>Search within <b id="radius-label">500m</b></label>
+      <input type="range" id="radius-slider" min="100" max="1500" step="50" value="500">
+      <button id="locate-btn">📍 Use my location</button>
+      <div class="loc-picker">
+        <select id="manual-loc">
+          <option value="">Or pick a spot…</option>
+          <option value="12.9718,79.1572">Near Hotspot Zone 1</option>
+          <option value="12.9693,79.1559">Near Hotspot Zone 2</option>
+          <option value="12.9700,79.1550">Near Hotspot Zone 3</option>
+          <option value="12.9694,79.1568">Near Hotspot Zone 4</option>
+          <option value="12.9693,79.1576">Near Hotspot Zone 5</option>
+          <option value="12.9711,79.1637">Near Hotspot Zone 6</option>
+          <option value="12.9715,79.1672">Near Hotspot Zone 7</option>
+          <option value="12.9729,79.1606">Near Hotspot Zone 8</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="legend">
+      <span style="font-weight:700; color:var(--text); letter-spacing:0.5px;">SPOT RATING</span>
+      <div class="item"><span class="swatch" style="background:#b7ff5b;"></span> Great — fast &amp; close</div>
+      <div class="item"><span class="swatch" style="background:#f1ca55;"></span> Okay — decent trade-off</div>
+      <div class="item"><span class="swatch" style="background:#ff625e;"></span> Poor — slow or far</div>
+      <div class="item"><span class="swatch" style="background:#6b8cff;"></span> You</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Best option near you</h2>
+      <div id="best-container"></div>
+
+      <h2>Just outside your range</h2>
+      <div id="outside-container"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#screen-app -->
+
+<div id="toast"></div>
+
+<!-- ======================================================================
+     AUTH MODAL (shared entry point into the app)
+====================================================================== -->
+<div id="auth-screen">
+  <div class="auth-wrap">
+    <div class="radar"><span></span><span></span><span></span></div>
+    <div class="auth-card">
+      <button class="auth-close" id="auth-close" type="button">✕</button>
+
+      <div class="auth-mark">
+        <div class="glyph">📶</div>
+        <b>Campus <span class="brand-accent">WiF<svg class="pin-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.5 2 5.5 4.8 5.5 8.5c0 5.2 6.5 13 6.5 13s6.5-7.8 6.5-13C18.5 4.8 15.5 2 12 2z" fill="currentColor"/><circle cx="12" cy="8.6" r="2.4" fill="var(--bg)"/></svg>nder</span></b>
+      </div>
+
+      <h2 id="auth-title">Welcome back</h2>
+      <p class="sub" id="auth-sub">Sign in to see live Wi-Fi conditions across campus.</p>
+
+      <div class="auth-tabs">
+        <button id="tab-signin" class="active" type="button">Sign in</button>
+        <button id="tab-signup" type="button">Create account</button>
+      </div>
+
+      <form id="auth-form">
+        <div class="field">
+          <label for="auth-user">Username</label>
+          <input id="auth-user" type="text" placeholder="e.g. arjun.k" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="auth-pass">Password</label>
+          <input id="auth-pass" type="password" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        <button class="auth-submit" id="auth-submit" type="submit">Sign in</button>
+        <div class="auth-error" id="auth-error"></div>
+      </form>
+
+      <div class="auth-guest">Just exploring? <a id="guest-link">Continue as guest</a></div>
+      <div class="auth-note">Demo login — credentials are stored only in this browser, not on a server.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// =====================================================================
+// SCREEN SWITCHING
+// =====================================================================
+const screenLanding = document.getElementById("screen-landing");
+const screenApp = document.getElementById("screen-app");
+
+function showLanding() {
+  screenApp.style.display = "none";
+  screenLanding.style.display = "block";
+}
+function showApp() {
+  screenLanding.style.display = "none";
+  screenApp.style.display = "block";
+}
+
+// =====================================================================
+// AUTH (front-end demo only — credentials live in this browser's
+// localStorage, not on a server. Swap this block out for your real
+// auth/backend whenever that's ready.)
+// =====================================================================
+const USERS_KEY = "cwf_users";
+const SESSION_KEY = "cwf_session";
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveUsers(u) {
+  try { localStorage.setItem(USERS_KEY, JSON.stringify(u)); } catch (e) {}
+}
+function setSession(name) {
+  try { sessionStorage.setItem(SESSION_KEY, name); } catch (e) {}
+}
+function getSession() {
+  try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; }
+}
+function clearSession() {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+}
+
+let authMode = "signin";
+
+const authScreen = document.getElementById("auth-screen");
+const tabSignin = document.getElementById("tab-signin");
+const tabSignup = document.getElementById("tab-signup");
+const authTitle = document.getElementById("auth-title");
+const authSub = document.getElementById("auth-sub");
+const authSubmit = document.getElementById("auth-submit");
+const authForm = document.getElementById("auth-form");
+const authError = document.getElementById("auth-error");
+const appUserChip = document.getElementById("app-user-chip");
+const appUserAvatar = document.getElementById("app-user-avatar");
+const appUserNameEl = document.getElementById("app-user-name");
+const appLogoutMenu = document.getElementById("app-logout-menu");
+
+function setAuthMode(mode) {
+  authMode = mode;
+  authError.textContent = "";
+  if (mode === "signin") {
+    tabSignin.classList.add("active");
+    tabSignup.classList.remove("active");
+    authTitle.textContent = "Welcome back";
+    authSub.textContent = "Sign in to see live Wi-Fi conditions across campus.";
+    authSubmit.textContent = "Sign in";
+    document.getElementById("auth-pass").autocomplete = "current-password";
+  } else {
+    tabSignup.classList.add("active");
+    tabSignin.classList.remove("active");
+    authTitle.textContent = "Create your account";
+    authSub.textContent = "Set a username and password to save your campus preferences.";
+    authSubmit.textContent = "Create account";
+    document.getElementById("auth-pass").autocomplete = "new-password";
+  }
+}
+tabSignin.addEventListener("click", () => setAuthMode("signin"));
+tabSignup.addEventListener("click", () => setAuthMode("signup"));
+
+function openAuth() {
+  authError.textContent = "";
+  authForm.reset();
+  authScreen.classList.add("show");
+}
+function closeAuth() {
+  authScreen.classList.remove("show");
+}
+
+[document.getElementById("nav-signin-btn"),
+ document.getElementById("nav-getstarted-btn"),
+ document.getElementById("hero-getstarted-btn"),
+ document.getElementById("cta-band-btn")].forEach((btn) => {
+  btn.addEventListener("click", openAuth);
+});
+document.getElementById("auth-close").addEventListener("click", closeAuth);
+authScreen.addEventListener("click", (e) => { if (e.target === authScreen) closeAuth(); });
+
+function enterApp(name) {
+  setSession(name);
+  closeAuth();
+  showApp();
+  appUserAvatar.textContent = name.trim().charAt(0).toUpperCase() || "?";
+  appUserNameEl.textContent = name;
+  locate();
+  // in case the app screen was display:none while Leaflet measured it
+  setTimeout(() => { if (map) map.invalidateSize(); }, 60);
+}
+
+authForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const user = document.getElementById("auth-user").value.trim();
+  const pass = document.getElementById("auth-pass").value;
+  authError.textContent = "";
+
+  if (!user || !pass) {
+    authError.textContent = "Enter a username and password.";
+    return;
+  }
+
+  const users = getUsers();
+
+  if (authMode === "signup") {
+    if (users[user]) {
+      authError.textContent = "That username is already taken.";
+      return;
+    }
+    users[user] = pass;
+    saveUsers(users);
+    enterApp(user);
+  } else {
+    if (!users[user] || users[user] !== pass) {
+      authError.textContent = "Incorrect username or password.";
+      return;
+    }
+    enterApp(user);
+  }
+});
+
+document.getElementById("guest-link").addEventListener("click", () => enterApp("Guest"));
+
+appUserChip.addEventListener("click", () => appLogoutMenu.classList.toggle("show"));
+document.addEventListener("click", (e) => {
+  if (!appUserChip.contains(e.target)) appLogoutMenu.classList.remove("show");
+});
+document.getElementById("app-logout-btn").addEventListener("click", () => {
+  clearSession();
+  location.reload();
+});
+
+window.addEventListener("DOMContentLoaded", () => {
+  const existing = getSession();
+  if (existing) {
+    // returning session — skip straight into the app, no landing/pin intro
+    showApp();
+    appUserAvatar.textContent = existing.trim().charAt(0).toUpperCase() || "?";
+    appUserNameEl.textContent = existing;
+    locate();
+  }
+});
+
+// =====================================================================
+// CAMPUS DATA — real surveyed coordinates. Speed/latency per spot are
+// still placeholders; swap these for your model's predictions later.
+// =====================================================================
+const HOTSPOT_ZONES = [
+  [[12.972028, 79.156694], [12.971417, 79.156556], [12.972028, 79.158333]],
+  [[12.968889, 79.155361], [12.968861, 79.156444], [12.969639, 79.156472], [12.969639, 79.155361]],
+  [[12.970389, 79.155000], [12.969361, 79.154778], [12.970389, 79.155333]],
+  [[12.969639, 79.156528], [12.969611, 79.157139], [12.969111, 79.157111], [12.969111, 79.156556]],
+  [[12.969583, 79.157472], [12.968861, 79.157389], [12.969528, 79.158028]],
+  [[12.971500, 79.163167], [12.970889, 79.163222], [12.970639, 79.164111], [12.971444, 79.164222]],
+  [[12.972306, 79.166250], [12.970556, 79.166528], [12.970944, 79.167583], [12.972389, 79.168278]],
+  [[12.972861, 79.157389], [12.972667, 79.157389], [12.972917, 79.163722], [12.973111, 79.163722]],
+];
+
+// =====================================================================
+// LIVE STATE CLIENT
+// Was: one fetch at page load, then the numbers never moved again.
+// Now: poll every 2s so crowd movement is visible in real time. The server
+// is authoritative for everything except your own GPS position.
+// =====================================================================
+const API = "http://localhost:5000";
+const POLL_MS = 2000;
+
+// Stable per-browser id so the backend can count you as one user and you can
+// "leave" a zone when you pick a different one.
+const CLIENT_ID = (() => {
+  let id = localStorage.getItem("cwf_client_id");
+  if (!id) { id = "c_" + Math.random().toString(36).slice(2, 10); localStorage.setItem("cwf_client_id", id); }
+  return id;
+})();
+
+// FALLBACK — if the API is down, the map still renders with these. Never let
+// a dead backend produce a blank screen during a demo.
+let ZONE_STATS = Array.from({ length: 8 }, (_, k) => ({
+  download_mbps: 17 + (k % 3), latency_ms: 17, users: 14, capacity_users: 30,
+  headroom: 16, load_pct: 47, status: "good", trend: "flat", zone_id: `zone-${k + 1}`,
+}));
+
+let SERVER_VERSION = -1;
+let BEST_ZONE_ID = null;
+let MY_ZONE_ID = null;
+let API_ONLINE = false;
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", "X-Client-Id": CLIENT_ID, ...(opts.headers || {}) },
+  });
+  if (!res.ok) throw new Error(path + " -> " + res.status);
+  return res.json();
+}
+
+async function pollState() {
+  try {
+    const state = await api("/api/state");
+    API_ONLINE = true;
+
+    // Only re-render when the server actually advanced a tick. Cheap guard
+    // that stops the map flickering four times a second.
+    if (state.version !== SERVER_VERSION) {
+      SERVER_VERSION = state.version;
+      ZONE_STATS = state.zones;
+
+      // REROUTE ALERT — the money moment of the demo.
+      if (BEST_ZONE_ID && state.best_zone && state.best_zone !== BEST_ZONE_ID) {
+        const from = ZONE_STATS.find((z) => z.zone_id === BEST_ZONE_ID);
+        const to = ZONE_STATS.find((z) => z.zone_id === state.best_zone);
+        if (from && to) showReroute(from, to);
+      }
+      BEST_ZONE_ID = state.best_zone;
+
+      buildSpots();
+      if (typeof currentLat !== "undefined" && map) {
+        render(currentLat, currentLng, Number(document.getElementById("radius-slider").value));
+      }
+      renderSimPanel();
+    }
+  } catch (e) {
+    if (API_ONLINE) console.warn("API unreachable, holding last known state", e);
+    API_ONLINE = false;
+    if (!SPOTS.length) { buildSpots(); }
+  }
+}
+
+function startPolling() { pollState(); setInterval(pollState, POLL_MS); }
+startPolling();
+
+function zoneCentroid(zone) {
+  const lat = zone.reduce((sum, p) => sum + p[0], 0) / zone.length;
+  const lng = zone.reduce((sum, p) => sum + p[1], 0) / zone.length;
+  return { lat, lng };
+}
+
+let SPOTS = [];
+
+function buildSpots() {
+  SPOTS = HOTSPOT_ZONES.map((zone, i) => {
+    const c = zoneCentroid(zone);
+    const s = ZONE_STATS[i] || {};
+    return {
+      name: s.name || `Hotspot Zone ${i + 1}`,
+      zone_id: s.zone_id || `zone-${i + 1}`,
+      lat: c.lat,
+      lng: c.lng,
+      polygon: zone,
+      download_mbps: s.download_mbps ?? 0,
+      latency_ms: s.latency_ms ?? 0,
+      // --- new live-load fields ---
+      users: s.users ?? 0,
+      capacity_users: s.capacity_users ?? 30,
+      headroom: s.headroom ?? 0,
+      load_pct: s.load_pct ?? 0,
+      trend: s.trend || "flat",
+      serverStatus: s.status || "good",
+    };
+  });
+}
+
+// =====================================================================
+// SCORING — a spot's rating blends how FAST it is with how CLOSE it is.
+// Both are normalised 0..1, then weighted. Tweak the weights to taste:
+// raise SPEED_WEIGHT if people care more about throughput than walking.
+// =====================================================================
+const SPEED_WEIGHT = 0.65;
+const DISTANCE_WEIGHT = 0.35;
+const MAX_EXPECTED_MBPS = 25;
+
+function scoreSpot(spot, radiusM) {
+  const speedScore = Math.min(1, spot.download_mbps / MAX_EXPECTED_MBPS);
+  const proximityScore = Math.max(0, 1 - spot.distance_m / radiusM);
+  return SPEED_WEIGHT * speedScore + DISTANCE_WEIGHT * proximityScore;
+}
+
+function statusFromScore(score) {
+  if (score >= 0.62) return "good";
+  if (score >= 0.42) return "moderate";
+  return "congested";
+}
+
+function colorFor(status) {
+  return status === "good" ? "#b7ff5b"
+       : status === "moderate" ? "#f1ca55"
+       : "#ff625e";
+}
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// =====================================================================
+// MAP
+// =====================================================================
+let map, userMarker, radiusCircle;
+const markers = [];
+
+function initMap(lat, lng) {
+  map = L.map("map").setView([lat, lng], 16);
+  L.tileLayer("https://maps.geoapify.com/v1/tile/dark-matter-brown/{z}/{x}/{y}.png?apiKey=29635a3a9da84fe4a5fc8f00f606d62a", {
+    attribution:
+      '<a href="https://www.geoapify.com/" target="_blank">Powered by Geoapify</a> | © OpenMapTiles © OpenStreetMap contributors',
+    maxZoom: 20,
+  }).addTo(map);
+
+  userMarker = L.circleMarker([lat, lng], {
+    radius: 8,
+    color: "#ffffff",
+    weight: 2,
+    fillColor: "#6b8cff",
+    fillOpacity: 1,
+  }).addTo(map).bindPopup("You are here");
+
+  radiusCircle = L.circle([lat, lng], {
+    radius: Number(document.getElementById("radius-slider").value),
+    color: "#b7ff5b",
+    weight: 1.5,
+    opacity: 0.75,
+    fillColor: "#b7ff5b",
+    fillOpacity: 0.05,
+    dashArray: "6 8",
+  }).addTo(map);
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 4000);
+}
+
+function updateStatusPill(state, label, sub, showRetry) {
+  const bars = document.getElementById("signal-bars");
+  const pulse = document.getElementById("pulse-dot");
+  const retry = document.getElementById("retry-link");
+  bars.className = "signal-bars" + (state ? " " + state : "");
+  document.getElementById("status-label").textContent = label;
+  document.getElementById("status-sub").textContent = sub;
+  pulse.style.display = state === "good" || state === "moderate" ? "block" : "none";
+  retry.style.display = showRetry ? "block" : "none";
+}
+
+function render(lat, lng, radiusM) {
+  markers.forEach((m) => map.removeLayer(m));
+  markers.length = 0;
+
+  if (radiusCircle) {
+    radiusCircle.setLatLng([lat, lng]);
+    radiusCircle.setRadius(radiusM);
+  }
+
+  const enriched = SPOTS.map((spot) => {
+    const distance_m = Math.round(distanceMeters(lat, lng, spot.lat, spot.lng));
+    const withDistance = { ...spot, distance_m };
+    const score = scoreSpot(withDistance, radiusM);
+    return { ...withDistance, score, status: statusFromScore(score) };
+  });
+
+  const inRange = enriched
+    .filter((l) => l.distance_m <= radiusM)
+    .sort((a, b) => b.score - a.score);
+
+  const justOutside = enriched
+    .filter((l) => l.distance_m > radiusM && l.distance_m <= radiusM * 1.5)
+    .sort((a, b) => a.distance_m - b.distance_m);
+
+  // Filled polygons make congestion legible at a glance — a red blob
+  // spreading across the map reads far better on a projector than a dot.
+
+
+  inRange.forEach((loc) => {
+    const color = colorFor(loc.status);
+    console.log(loc.name, loc.status, colorFor(loc.status));
+    const marker = L.circleMarker([loc.lat, loc.lng], {
+      radius: 9,
+      color: "#0b1410",
+      weight: 1.5,
+      fillColor: color,
+      fillOpacity: 0.95,
+    })
+      .addTo(map)
+      .bindPopup(
+        `<b>${loc.name}</b><br>${loc.download_mbps} Mbps · ${loc.latency_ms} ms<br>` +
+        `${loc.users}/${loc.capacity_users} users · ${loc.headroom} free<br>${loc.distance_m}m away`
+      );
+    markers.push(marker);
+  });
+
+  const bestContainer = document.getElementById("best-container");
+  if (inRange.length > 0) {
+    const best = inRange[0];
+    const pct = Math.round(best.score * 100);
+    const arrow = best.trend === "down" ? "&#9660;" : best.trend === "up" ? "&#9650;" : "";
+    const joined = MY_ZONE_ID === best.zone_id;
+    bestContainer.innerHTML = `
+      <div class="best-card">
+        <div class="dot ${best.status}"></div>
+        <div class="info">
+          <b>${best.name} <span class="cwf-trend ${best.trend}">${arrow}</span></b>
+          <div class="meta">${best.download_mbps} Mbps · ${best.latency_ms}ms latency · ${best.distance_m}m away</div>
+          <div class="meta cwf-load">${best.users}/${best.capacity_users} users · ${best.headroom} slots free</div>
+          <div class="strength-track"><div class="strength-fill" style="width:${pct}%;"></div></div>
+          <button class="cwf-go ${joined ? "joined" : ""}" data-zone="${best.zone_id}">
+            ${joined ? "You're here — tap to leave" : "Go here"}
+          </button>
+        </div>
+      </div>`;
+    const goBtn = bestContainer.querySelector(".cwf-go");
+    if (goBtn) goBtn.addEventListener("click", () => toggleJoin(goBtn.dataset.zone));
+    showToast(`📍 ${best.name} — ${best.download_mbps} Mbps, ${best.distance_m}m away`);
+    updateStatusPill(best.status, `Best nearby: ${best.download_mbps} Mbps`, `${best.name} · ${best.distance_m}m away`, false);
+  } else {
+    bestContainer.innerHTML = `<div class="loc-row"><span class="muted">No spots within ${radiusM}m — try widening your radius.</span></div>`;
+    updateStatusPill("congested", "No spot in range", `Try a wider radius than ${radiusM}m`, false);
+  }
+
+  const outsideContainer = document.getElementById("outside-container");
+  outsideContainer.innerHTML = justOutside.length
+    ? justOutside
+        .map(
+          (loc) => `
+      <div class="loc-row">
+        <div class="left">
+          <div class="dot ${loc.status}"></div>
+          <div>${loc.name}<div class="muted">${loc.download_mbps} Mbps · ${loc.latency_ms}ms</div></div>
+        </div>
+        <div class="muted">${loc.distance_m}m</div>
+      </div>`
+        )
+        .join("")
+    : `<div class="loc-row"><span class="muted">Nothing just outside your range.</span></div>`;
+}
+
+// =====================================================================
+// LOCATION HANDLING
+// =====================================================================
+function locate() {
+  updateStatusPill(null, "Requesting location…", "Waiting for permission", false);
+
+  if (!navigator.geolocation) {
+    updateStatusPill("moderate", "Geolocation unsupported", "Try the dropdown instead", false);
+    startWithCoords(12.9715, 79.1600);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => startWithCoords(pos.coords.latitude, pos.coords.longitude),
+    (err) => {
+      let label = "Location unavailable";
+      let sub = "Using campus center fallback";
+      if (err.code === 1) {
+        label = "Location permission denied";
+        sub = "Allow location in your browser, then retry";
+      } else if (err.code === 2) {
+        label = "Location unavailable";
+        sub = "Device couldn't determine position";
+      } else if (err.code === 3) {
+        label = "Location request timed out";
+        sub = "Weak GPS/network signal — retry?";
+      }
+      updateStatusPill("moderate", label, sub, true);
+      startWithCoords(12.9715, 79.1600);
+    },
+    { timeout: 8000 }
+  );
+}
+
+let currentLat, currentLng;
+
+function startWithCoords(lat, lng) {
+  currentLat = lat;
+  currentLng = lng;
+  if (!map) initMap(lat, lng);
+  else {
+    map.setView([lat, lng], 16);
+    userMarker.setLatLng([lat, lng]);
+  }
+  render(lat, lng, Number(document.getElementById("radius-slider").value));
+}
+
+document.getElementById("retry-link").addEventListener("click", locate);
+document.getElementById("locate-btn").addEventListener("click", locate);
+
+document.getElementById("manual-loc").addEventListener("change", (e) => {
+  if (!e.target.value) return;
+  const [lat, lng] = e.target.value.split(",").map(Number);
+  updateStatusPill(null, "Using selected spot", e.target.options[e.target.selectedIndex].text, false);
+  startWithCoords(lat, lng);
+});
+
+document.getElementById("radius-slider").addEventListener("input", (e) => {
+  const r = Number(e.target.value);
+  document.getElementById("radius-label").textContent = `${r}m`;
+  if (currentLat !== undefined) render(currentLat, currentLng, r);
+});
+
+
+// =====================================================================
+// JOIN / LEAVE — a tap here changes real backend state, which changes the
+// prediction, which can change the recommendation. This closes the loop.
+// =====================================================================
+async function toggleJoin(zoneId) {
+  try {
+    if (MY_ZONE_ID === zoneId) {
+      await api("/api/leave", { method: "POST", body: "{}" });
+      MY_ZONE_ID = null;
+      showToast("Left the zone");
+    } else {
+      await api("/api/join", { method: "POST", body: JSON.stringify({ zone_id: zoneId }) });
+      MY_ZONE_ID = zoneId;
+      showToast("You're counted in this zone — watch its load rise");
+    }
+    SERVER_VERSION = -1;   // force an immediate re-render on next poll
+    pollState();
+  } catch (e) {
+  console.error(e);
+  showToast("Backend offline, can't join");
+}
+}
+
+// =====================================================================
+// REROUTE BANNER
+// =====================================================================
+function showReroute(from, to) {
+  let el = document.getElementById("cwf-reroute");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "cwf-reroute";
+    document.body.appendChild(el);
+  }
+  el.innerHTML =
+    `<b>Rerouting</b>${from.name} dropped to ${from.download_mbps} Mbps — ` +
+    `switch to <b>${to.name}</b> (${to.download_mbps} Mbps)`;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 6000);
+}
+
+// =====================================================================
+// SIMULATOR PANEL — your demo remote control. Press-and-watch.
+// =====================================================================
+function buildSimPanel() {
+  const panel = document.createElement("div");
+  panel.id = "cwf-sim";
+  panel.innerHTML = `
+    <div class="cwf-sim-head">
+      <span>Crowd simulator</span>
+      <button id="cwf-sim-toggle">&minus;</button>
+    </div>
+    <div class="cwf-sim-body">
+      <div class="cwf-sim-hint">Add users to a zone and watch the map rebalance.</div>
+      <div id="cwf-sim-rows"></div>
+      <button id="cwf-sim-reset" class="cwf-sim-reset">Reset all zones</button>
+      <div id="cwf-sim-status" class="cwf-sim-hint"></div>
+    </div>`;
+  document.body.appendChild(panel);
+
+  document.getElementById("cwf-sim-toggle").addEventListener("click", () => {
+    panel.classList.toggle("collapsed");
+  });
+  document.getElementById("cwf-sim-reset").addEventListener("click", async () => {
+    try { await api("/api/sim/reset", { method: "POST", body: "{}" }); MY_ZONE_ID = null; SERVER_VERSION = -1; pollState(); }
+    catch (e) { showToast("Backend offline"); }
+  });
+}
+
+function renderSimPanel() {
+  const rows = document.getElementById("cwf-sim-rows");
+  if (!rows) return;
+  rows.innerHTML = ZONE_STATS.map((z) => `
+    <div class="cwf-sim-row ${z.zone_id === BEST_ZONE_ID ? "best" : ""}">
+      <div class="cwf-sim-name">
+        <span class="dot ${z.status}"></span>${(z.name || z.zone_id).replace("Hotspot ", "")}
+      </div>
+      <div class="cwf-sim-val">${z.download_mbps}<small>Mbps</small></div>
+      <div class="cwf-sim-bar"><i style="width:${Math.min(100, z.load_pct)}%"></i></div>
+      <div class="cwf-sim-users">${z.users}/${z.capacity_users}</div>
+      <div class="cwf-sim-btns">
+        <button data-zone="${z.zone_id}" data-n="10">+10</button>
+        <button data-zone="${z.zone_id}" data-n="-10">&minus;10</button>
+      </div>
+    </div>`).join("");
+
+  rows.querySelectorAll("button").forEach((b) => {
+    b.addEventListener("click", async () => {
+      try {
+        const r = await api("/api/sim/inject", {
+          method: "POST",
+          body: JSON.stringify({ zone_id: b.dataset.zone, users: Number(b.dataset.n) }),
+        });
+        document.getElementById("cwf-sim-status").textContent =
+          `${r.before_mbps} → ${r.after_mbps} Mbps`;
+        SERVER_VERSION = -1;
+        pollState();
+      } catch (e) { showToast("Backend offline"); }
+    });
+  });
+}
+
+const CWF_SIM_CSS = `
+#cwf-sim{position:fixed;right:14px;bottom:14px;width:320px;z-index:9000;
+  background:rgba(12,20,16,.94);border:1px solid rgba(183,255,91,.28);border-radius:14px;
+  color:#e8f5e9;font:12px/1.4 system-ui,-apple-system,sans-serif;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);backdrop-filter:blur(8px);overflow:hidden}
+#cwf-sim .cwf-sim-head{display:flex;justify-content:space-between;align-items:center;
+  padding:10px 12px;background:rgba(183,255,91,.1);font-weight:600;letter-spacing:.02em}
+#cwf-sim .cwf-sim-head button{background:none;border:none;color:#b7ff5b;font-size:16px;cursor:pointer;line-height:1}
+#cwf-sim.collapsed .cwf-sim-body{display:none}
+#cwf-sim .cwf-sim-body{padding:10px 12px 12px;max-height:56vh;overflow:auto}
+#cwf-sim .cwf-sim-hint{opacity:.62;margin-bottom:8px;font-size:11px}
+#cwf-sim .cwf-sim-row{display:grid;grid-template-columns:78px 52px 1fr 40px 62px;
+  gap:6px;align-items:center;padding:5px 4px;border-radius:7px}
+#cwf-sim .cwf-sim-row.best{background:rgba(183,255,91,.13);outline:1px solid rgba(183,255,91,.3)}
+#cwf-sim .cwf-sim-name{display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11px}
+#cwf-sim .cwf-sim-name .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+#cwf-sim .dot.good{background:#b7ff5b}#cwf-sim .dot.okay{background:#f1ca55}#cwf-sim .dot.bad{background:#ff625e}
+#cwf-sim .cwf-sim-val{font-weight:700;font-size:13px;text-align:right}
+#cwf-sim .cwf-sim-val small{font-size:8px;opacity:.55;margin-left:2px;font-weight:400}
+#cwf-sim .cwf-sim-bar{height:5px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}
+#cwf-sim .cwf-sim-bar i{display:block;height:100%;background:linear-gradient(90deg,#b7ff5b,#f1ca55 62%,#ff625e);
+  transition:width .45s ease}
+#cwf-sim .cwf-sim-users{font-size:10px;opacity:.7;text-align:right}
+#cwf-sim .cwf-sim-btns{display:flex;gap:3px;justify-content:flex-end}
+#cwf-sim .cwf-sim-btns button{flex:1;background:rgba(183,255,91,.14);border:1px solid rgba(183,255,91,.3);
+  color:#b7ff5b;border-radius:5px;padding:3px 0;font-size:10px;cursor:pointer}
+#cwf-sim .cwf-sim-btns button:hover{background:rgba(183,255,91,.3)}
+#cwf-sim .cwf-sim-reset{width:100%;margin-top:9px;background:rgba(255,98,94,.14);
+  border:1px solid rgba(255,98,94,.34);color:#ff938f;border-radius:7px;padding:6px;cursor:pointer;font-size:11px}
+#cwf-reroute{position:fixed;top:-90px;left:50%;transform:translateX(-50%);z-index:9500;
+  background:linear-gradient(135deg,#1a2b1e,#16241a);border:1px solid rgba(255,202,85,.55);
+  color:#ffe9b0;padding:11px 18px;border-radius:11px;font:13px/1.45 system-ui,sans-serif;
+  box-shadow:0 10px 36px rgba(0,0,0,.55);transition:top .45s cubic-bezier(.2,.9,.3,1);max-width:90vw}
+#cwf-reroute.show{top:16px}
+#cwf-reroute b{color:#ffca55;margin-right:7px}
+.cwf-go{margin-top:9px;width:100%;background:rgba(183,255,91,.17);border:1px solid rgba(183,255,91,.42);
+  color:#b7ff5b;border-radius:8px;padding:7px;cursor:pointer;font-size:12px;font-weight:600}
+.cwf-go.joined{background:rgba(255,202,85,.15);border-color:rgba(255,202,85,.42);color:#ffca55}
+.cwf-trend.down{color:#ff625e}.cwf-trend.up{color:#b7ff5b}
+.cwf-load{opacity:.68;font-size:11px}
+`;
+
+(function initSimUI() {
+  const st = document.createElement("style");
+  st.textContent = CWF_SIM_CSS;
+  document.head.appendChild(st);
+  buildSimPanel();
+  renderSimPanel();
+})();
+
+</script>
+</body>
+</html>
